@@ -7,13 +7,23 @@ import uuid
 import requests
 import base64
 from apscheduler.schedulers.background import BackgroundScheduler
+from supabase import create_client
+import google.generativeai as genai
 
 # ------------------------ CONFIG ------------------------ #
 st.set_page_config(page_title="Meeting Organizer", layout="wide")
 
-# Store your Teams webhook here or via Streamlit secrets
-if "webhook_url" not in st.session_state:
-    st.session_state["webhook_url"] = ""
+# Load secrets
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+TEAMS_WEBHOOK = st.secrets.get("TEAMS_WEBHOOK", "")
+
+# Supabase client
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Configure Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
 # ------------------------ DATA STRUCTURES ------------------------ #
 if "meetings" not in st.session_state:
@@ -73,11 +83,16 @@ def send_to_teams(meeting, summary_url, webhook_url):
     response = requests.post(webhook_url, json=message, headers=headers)
     return response.status_code
 
+def summarize_with_gemini(transcript):
+    model = genai.GenerativeModel('gemini-pro')
+    response = model.generate_content(f"Summarize this meeting transcript:\n\n{transcript}")
+    return response.text
+
 # ------------------------ MAIN UI ------------------------ #
 st.title("📅 Meeting Organizer with MoM Generator")
 
 st.sidebar.header("🔧 Configuration")
-st.session_state["webhook_url"] = st.sidebar.text_input("Teams Webhook URL", st.session_state["webhook_url"])
+st.session_state["webhook_url"] = st.sidebar.text_input("Teams Webhook URL", st.session_state.get("webhook_url", TEAMS_WEBHOOK))
 
 # Meeting form
 with st.form("meeting_form"):
@@ -117,16 +132,16 @@ with st.form("action_form"):
         })
         st.success("Action item added.")
 
-# Summarization (mocked here for simplicity)
+# Summarization (Gemini)
 st.subheader("🧠 Meeting Summary")
 if st.button("🔄 Generate Final Summary"):
-    # Mocked summary (replace with LLM call in real usage)
-    st.session_state.summary_chunks = [
-        "Discussed project timelines.",
-        "Assigned new tasks to the frontend team.",
-        "Budget review pending for Q3."
-    ]
-    st.success("Summary generated.")
+    transcript = st.session_state.meetings[-1]["notes"] if st.session_state.meetings else ""
+    if transcript:
+        summary = summarize_with_gemini(transcript)
+        st.session_state.summary_chunks = summary.strip().split("\n")
+        st.success("Summary generated with Gemini.")
+    else:
+        st.warning("No transcript available to summarize.")
 
 if st.session_state.summary_chunks:
     st.markdown("### 🔍 Current Summary")
