@@ -4,4 +4,4 @@ apscheduler
 python-docx
 supabase
 google-generativeai
-streamlit-mic-recorder
+streamlit-webrtc
