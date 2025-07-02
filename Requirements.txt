@@ -1,4 +1,6 @@
 streamlit
 requests
 apscheduler
+python-docx
 supabase
+google-generativeai
