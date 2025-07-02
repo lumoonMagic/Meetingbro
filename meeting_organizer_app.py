@@ -2,7 +2,7 @@
 
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 from datetime import datetime, timedelta
 import uuid
 import requests
@@ -106,7 +106,7 @@ class AudioProcessor(AudioProcessorBase):
         st.session_state.transcript = "[Simulated transcript: meeting voice captured]"
         return frame
 
-webrtc_streamer(key="audio", mode="SENDONLY", audio_processor_factory=AudioProcessor)
+webrtc_streamer(key="audio", mode=WebRtcMode.SENDONLY, audio_processor_factory=AudioProcessor)
 
 # Meeting form
 with st.form("meeting_form"):
