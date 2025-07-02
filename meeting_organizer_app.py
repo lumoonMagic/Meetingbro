@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import uuid
 import requests
 import base64
-from apscheduler.schedulers.background import BackgroundScheduler
 from supabase import create_client
 import google.generativeai as genai
 
