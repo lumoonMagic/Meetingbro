@@ -2,13 +2,15 @@
 
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 from datetime import datetime, timedelta
 import uuid
 import requests
 import base64
 from supabase import create_client
 import google.generativeai as genai
-import streamlit_mic_recorder as mic_recorder
+import av
+import numpy as np
 
 # ------------------------ CONFIG ------------------------ #
 st.set_page_config(page_title="Meeting Organizer", layout="wide")
@@ -97,13 +99,14 @@ st.title("📅 Meeting Organizer with MoM Generator")
 st.sidebar.header("🔧 Configuration")
 st.session_state["webhook_url"] = st.sidebar.text_input("Teams Webhook URL", st.session_state.get("webhook_url", TEAMS_WEBHOOK))
 
-# Microphone recording
-st.subheader("🎙️ Voice Note Recorder")
-audio = mic_recorder.audio_recorder()
-if audio:
-    st.audio(audio['bytes'], format='audio/wav')
-    st.session_state.transcript = "[Simulated transcript from recorded audio]"
-    st.info("Audio captured. (Transcription placeholder)")
+# Microphone recording (streamlit-webrtc)
+st.subheader("🎙️ Voice Note Recorder (Live - Simulated Transcript)")
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        st.session_state.transcript = "[Simulated transcript: meeting voice captured]"
+        return frame
+
+webrtc_streamer(key="audio", mode="SENDONLY", audio_processor_factory=AudioProcessor)
 
 # Meeting form
 with st.form("meeting_form"):
