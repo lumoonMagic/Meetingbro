@@ -8,6 +8,7 @@ import requests
 import base64
 from supabase import create_client
 import google.generativeai as genai
+import streamlit_mic_recorder as mic_recorder
 
 # ------------------------ CONFIG ------------------------ #
 st.set_page_config(page_title="Meeting Organizer", layout="wide")
@@ -33,6 +34,9 @@ if "action_items" not in st.session_state:
 
 if "summary_chunks" not in st.session_state:
     st.session_state["summary_chunks"] = []
+
+if "transcript" not in st.session_state:
+    st.session_state["transcript"] = ""
 
 # ------------------------ HELPERS ------------------------ #
 def generate_meeting_html(meeting, summary_chunks, action_items):
@@ -93,13 +97,21 @@ st.title("📅 Meeting Organizer with MoM Generator")
 st.sidebar.header("🔧 Configuration")
 st.session_state["webhook_url"] = st.sidebar.text_input("Teams Webhook URL", st.session_state.get("webhook_url", TEAMS_WEBHOOK))
 
+# Microphone recording
+st.subheader("🎙️ Voice Note Recorder")
+audio = mic_recorder.audio_recorder()
+if audio:
+    st.audio(audio['bytes'], format='audio/wav')
+    st.session_state.transcript = "[Simulated transcript from recorded audio]"
+    st.info("Audio captured. (Transcription placeholder)")
+
 # Meeting form
 with st.form("meeting_form"):
     st.subheader("📝 Start New Meeting")
     title = st.text_input("Meeting Title")
     date = st.date_input("Meeting Date", value=datetime.today())
     participants = st.text_input("Participants (comma-separated)")
-    notes = st.text_area("Meeting Notes")
+    notes = st.text_area("Meeting Notes", value=st.session_state.get("transcript", ""))
     submitted = st.form_submit_button("Start Meeting")
 
     if submitted:
@@ -112,6 +124,14 @@ with st.form("meeting_form"):
         }
         st.session_state.meetings.append(meeting)
         st.success("Meeting started and saved.")
+
+# Display all meetings
+if st.session_state.meetings:
+    st.subheader("📚 Meeting History")
+    for m in reversed(st.session_state.meetings):
+        st.markdown(f"**{m['title']}** - {m['date']} | Participants: {', '.join(m['participants'])}")
+        st.markdown(f"Notes: {m['notes']}")
+        st.markdown("---")
 
 # Action items
 st.subheader("📌 Action Items")
@@ -130,6 +150,12 @@ with st.form("action_form"):
             "status": status
         })
         st.success("Action item added.")
+
+# Show current action items
+if st.session_state.action_items:
+    st.markdown("### 📋 Current Action Items")
+    for item in st.session_state.action_items:
+        st.markdown(f"- **{item['task']}** (Assigned to: {item['assignee']}, Due: {item['due_date']}, Status: {item['status']})")
 
 # Summarization (Gemini)
 st.subheader("🧠 Meeting Summary")
@@ -160,7 +186,6 @@ if st.button("📄 Generate MoM HTML"):
 
         if st.session_state.webhook_url:
             st.info("Sending to Teams...")
-            # For simplicity, we assume local app, so we can't give a live URL
             response = send_to_teams(meeting, "(MoM attached via Streamlit)", st.session_state.webhook_url)
             if response == 200:
                 st.success("✅ Sent to Microsoft Teams.")
